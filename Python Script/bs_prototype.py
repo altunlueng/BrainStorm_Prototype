@@ -391,8 +391,31 @@ np.save('linked_words.npy', linked_words)
 #read_dictionary = np.load('linked_words.npy').item()
 linked_words = np.load('linked_words.npy').item()
 #
+#get the most common ones
+# also dict to dataframe
+# 'collections counter' library to be used
+from collections import Counter as cnt
+common_companions = {}
+keys = list(linked_words.keys())
+for key in keys:
+    counted = cnt(linked_words[key])
+    commons = counted.most_common(10)
+    t={}
+    for k,v in commons:
+        t[k] = v
+    common_companions[key] = t
 
 
+# to dataframe
+commonCompanions = pd.DataFrame(common_companions) # columns are primary words
+# get rid of nans
+commonCompanions = commonCompanions.fillna(0)
+# columns to rows
+commonCompanions = commonCompanions.transpose()
+
+
+
+"""
 #################################
 #################################
 # Creating the Bag of Words model
@@ -402,8 +425,8 @@ cv = CountVectorizer() # you can check the parameters, there are some useful one
 # This below gets 0,1,2 and so
 #X = cv.fit_transform(corpus).toarray() 
 # So i wanna keep column headers as word to crawl them later; so that i transfrm t to dataframe
-X = pd.DataFrame(cv.fit_transform(corpus).toarray(), columns=cv.get_feature_names())
-y = dataset.iloc[0, 4].values
+X = pd.DataFrame(cv.fit_transform(commonCompanions).toarray(), columns=cv.get_feature_names())
+#y = dataset.iloc[0, 4].values
 
 # feature scaling
 from sklearn.preprocessing import StandardScaler
@@ -411,57 +434,13 @@ sc_X = StandardScaler()
 nX = sc_X.fit_transform(X)
 #
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+"""
 #######################
 # NOT REALLY BUILT YET #
 # STILL WORKING ON IT #
 
 
-
+"""
 # PCA
 from sklearn.decomposition import PCA
 # you put here how many dimension you want
@@ -472,11 +451,107 @@ pca=PCA(n_components = 3)
 X_pca = pca.fit_transform(X)
 explained_variance = pca.explained_variance_ratio_
 
-
+"""
 # KMEANS
+########
+
+# scaling
+X1 = commonCompanions
+from sklearn.preprocessing import StandardScaler
+sc_X = StandardScaler()
+nX = sc_X.fit_transform(X1)
 
 from sklearn.cluster import KMeans
 # we create a loop to have 10 clusters stats to compare each
+wcss = []
+for i in range(1,11):
+    # we use the kmeans ++ initialization method
+    # cause rndom centroids may cause problems
+    kmeans= KMeans(n_clusters=i, init = 'k-means++', max_iter = 300, n_init = 10, random_state=0)
+    kmeans.fit(nX)
+    wcss.append(kmeans.inertia_) # calculate the wcss distance stuff to see the most efficient cluster number
+    
+# now we plot the wcss
+plt.plot(range(1,11), wcss)
+plt.title("Elbow Method")
+plt.xlabel("Number of clusters")
+plt.ylabel("Wcss value")
+plt.show()
+
+# applying the kmeans on our dataset now.
+kmeans= KMeans(n_clusters=4, init = 'k-means++', max_iter = 300, n_init = 10, random_state=0)
+# giving clusters to indiividuals
+y_kmeans = kmeans.fit_predict(nX)
+
+# Visualize the clusters
+# we giving the coodinates with 0 and 1. ==0 is the cluster
+# s = size , c= color
+plt.scatter(nX[y_kmeans == 0, 0], nX[y_kmeans == 0, 1], s=100, c= 'red', label='Cluster 1') 
+plt.scatter(nX[y_kmeans == 1, 0], nX[y_kmeans == 1, 1], s=100, c= 'blue', label='Cluster 2') 
+plt.scatter(nX[y_kmeans == 2, 0], nX[y_kmeans == 2, 1], s=100, c= 'green', label='Cluster 3') 
+plt.scatter(nX[y_kmeans == 3, 0], nX[y_kmeans == 3, 1], s=100, c= 'cyan', label='Cluster 4') 
+
+# centroids
+#plt.scatter(kmeans.cluster_centers_[:,0], kmeans.cluster_centers_[:,1], s=300, c= 'yellow', label='Centroids') 
+plt.title('Clusters of Primary Words')
+plt.xlabel('x')
+plt.ylabel('Groups')
+plt.legend() # we want to add all the different scores
+plt.show()
+#
+# Without scaling
+#
+# to numpy array for the graph
+X2 = X1.values
+
+wcss = []
+for i in range(1,11):
+    # we use the kmeans ++ initialization method
+    # cause rndom centroids may cause problems
+    kmeans= KMeans(n_clusters=i, init = 'k-means++', max_iter = 300, n_init = 10, random_state=0)
+    kmeans.fit(X2)
+    wcss.append(kmeans.inertia_) # calculate the wcss distance stuff to see the most efficient cluster number
+    
+# now we plot the wcss
+plt.plot(range(1,11), wcss)
+plt.title("Elbow Method")
+plt.xlabel("Number of clusters")
+plt.ylabel("Wcss value")
+plt.show()
+
+# applying the kmeans on our dataset now.
+kmeans= KMeans(n_clusters=5, init = 'k-means++', max_iter = 300, n_init = 10, random_state=0)
+# giving clusters to indiividuals
+y_kmeans = kmeans.fit_predict(X2)
+
+# Visualize the clusters
+# we giving the coodinates with 0 and 1. ==0 is the cluster
+# s = size , c= color
+plt.scatter(X2[y_kmeans == 0, 0], X2[y_kmeans == 0, 1], s=100, c= 'red', label='Cluster 1') 
+plt.scatter(X2[y_kmeans == 1, 0], X2[y_kmeans == 1, 1], s=100, c= 'blue', label='Cluster 2') 
+plt.scatter(X2[y_kmeans == 2, 0], X2[y_kmeans == 2, 1], s=100, c= 'green', label='Cluster 3') 
+plt.scatter(X2[y_kmeans == 3, 0], X2[y_kmeans == 3, 1], s=100, c= 'cyan', label='Cluster 4') 
+plt.scatter(X2[y_kmeans == 4, 0], X2[y_kmeans == 4, 1], s=100, c= 'yellow', label='Cluster 5') 
+
+# centroids
+#plt.scatter(kmeans.cluster_centers_[:,0], kmeans.cluster_centers_[:,1], s=300, c= 'yellow', label='Centroids') 
+plt.title('Clusters of Primary Words')
+plt.xlabel('x')
+plt.ylabel('Groups')
+plt.legend() # we want to add all the different scores
+plt.show()
+
+#6 i want to plot these in 3d with pca... we have 32 dimension normally
+# PCA
+from sklearn.decomposition import PCA
+# you put here how many dimension you want
+# BUT you should check how luch of the variance is explained and so.
+#That's why we don't just start by 2. So you put None to see the explaining percentage
+#pca=PCA(n_components = None)
+pca=PCA(n_components = 3)
+X_pca = pca.fit_transform(X1)
+explained_variance = pca.explained_variance_ratio_
+
 wcss = []
 for i in range(1,11):
     # we use the kmeans ++ initialization method
@@ -492,31 +567,10 @@ plt.xlabel("Number of clusters")
 plt.ylabel("Wcss value")
 plt.show()
 
-# applying the kmeans on our dataset now.
-# we chose 5 because there was a big descending impact
-kmeans= KMeans(n_clusters=4, init = 'k-means++', max_iter = 300, n_init = 10, random_state=0)
+kmeans= KMeans(n_clusters=5, init = 'k-means++', max_iter = 300, n_init = 10, random_state=0)
 # giving clusters to indiividuals
-y_kmeans = kmeans.fit_predict(X)
+y_kmeans = kmeans.fit_predict(X_pca)
 
-# Visualize the clusters
-# we giving the coodinates with 0 and 1. ==0 is the cluster
-# s = size , c= color
-plt.scatter(X_pca[y_kmeans == 0, 0], X_pca[y_kmeans == 0, 1], s=100, c= 'red', label='Cluster 1') 
-plt.scatter(X_pca[y_kmeans == 1, 0], X_pca[y_kmeans == 1, 1], s=100, c= 'blue', label='Cluster 2') 
-plt.scatter(X_pca[y_kmeans == 2, 0], X_pca[y_kmeans == 2, 1], s=100, c= 'green', label='Cluster 3') 
-plt.scatter(X_pca[y_kmeans == 3, 0], X_pca[y_kmeans == 3, 1], s=100, c= 'cyan', label='Cluster 4') 
-
-# centroids
-#plt.scatter(kmeans.cluster_centers_[:,0], kmeans.cluster_centers_[:,1], s=300, c= 'yellow', label='Centroids') 
-plt.title('Clusters of texts')
-plt.xlabel('x')
-plt.ylabel('Groups')
-plt.legend() # we want to add all the different scores
-plt.show()
-
-
-
-# SHOULD PLOT EACH value !
 #3d plotting
 from __future__ import division
 import matplotlib.pyplot as plt1
@@ -527,10 +581,44 @@ ax = fig.add_subplot(111, projection='3d')
 z_offset = 3
 
 # Plotting 3D points
-ax.plot(X_pca[:, 0], X_pca[:, 1], X_pca[:, 2],
-        'ro', alpha=0.6, color = 'brown', label='Versicolor')
+#ax.plot(X_pca[:, 0], X_pca[:, 1], X_pca[:, 2],'ro', alpha=0.6, color = ['g','b','r','c','y'], label='Cluster Plot')
+
+ax.scatter(X_pca[y_kmeans == 0, 0], X_pca[y_kmeans == 0, 1], X_pca[y_kmeans == 0, 2], alpha = 0.9,  color= 'red', label='Cluster 1')
+ax.scatter(X_pca[y_kmeans == 1, 0], X_pca[y_kmeans == 1, 1], X_pca[y_kmeans == 1, 2], alpha = 0.9, color= 'blue', label='Cluster 2')
+ax.scatter(X_pca[y_kmeans == 2, 0], X_pca[y_kmeans == 2, 1], X_pca[y_kmeans == 2, 2], alpha = 0.9, color= 'green', label='Cluster 3')
+ax.scatter(X_pca[y_kmeans == 3, 0], X_pca[y_kmeans == 3, 1], X_pca[y_kmeans == 3, 2], alpha = 0.9, color= 'cyan', label='Cluster 4')
+ax.scatter(X_pca[y_kmeans == 4, 0], X_pca[y_kmeans == 4, 1], X_pca[y_kmeans == 4, 2], alpha = 0.9, color= 'yellow', label='Cluster 5')
+
+# write to a file the clustered primary words
+primaries = X1.index.values
+clustered = []
+for i in range(0,len(primaries)):
+    t = []
+    t.append(primaries[i])
+    t.append(y_kmeans[i])
+    clustered.append(t)
+    
+arranged = []
+for i in range(0,5):
+    for c in clustered:
+        if c[1] == i:
+            arranged.append(c)
+    
+from pandas import ExcelWriter
+writer = ExcelWriter('Clustered_P_Words.xlsx')
+df = pd.DataFrame(arranged, columns = ['P_word','Cluster'])
+df.to_excel(writer, 'Clusters') 
+writer.save()  
 
 
+
+
+
+
+
+
+#################
+#My sphere trials (doesn't work)
 u1 = np.linspace(kmeans.cluster_centers_[0,0], 2 * np.pi, 100)
 v1 = np.linspace(kmeans.cluster_centers_[0,1], np.pi, 100)
 
@@ -572,25 +660,18 @@ z_sphere_4 = 2   * np.outer(np.ones(np.size(u4)), np.cos(v4)) + kmeans.cluster_c
 ax.plot_surface(x_sphere_4, y_sphere_4, z_sphere_4,
                 rstride=10, cstride=10, linewidth=0.1, color='cyan', alpha=0.1)
 
-
+u5 = np.linspace(0, 2 * np.pi, 100)
+v5 = np.linspace(0, np.pi, 100)
+x_sphere_5 = 1.5 * np.outer(np.cos(u5), np.sin(v5)) + kmeans.cluster_centers_[4,0]
+y_sphere_5 = 1   * np.outer(np.sin(u5), np.sin(v5)) + kmeans.cluster_centers_[4,1]
+z_sphere_5 = 2   * np.outer(np.ones(np.size(u5)), np.cos(v5)) + kmeans.cluster_centers_[4,2]
+ax.plot_surface(x_sphere_5, y_sphere_5, z_sphere_5,
+                rstride=10, cstride=10, linewidth=0.1, color='yellow', alpha=0.1)
 
 
 plt1.show()
 
-########################
-# Once you check the clusters then you do the same graph with the real labels like spenders, target, carefuletc.
-plt.scatter(X[y_kmeans == 0, 0], X[y_kmeans == 0, 1], s=100, c= 'red', label='C1') 
-plt.scatter(X[y_kmeans == 1, 0], X[y_kmeans == 1, 1], s=100, c= 'blue', label='C2') 
-plt.scatter(X[y_kmeans == 2, 0], X[y_kmeans == 2, 1], s=100, c= 'green', label='C3') 
-plt.scatter(X[y_kmeans == 3, 0], X[y_kmeans == 3, 1], s=100, c= 'cyan', label='C4') 
 
-# centroids
-plt.scatter(kmeans.cluster_centers_[:,0], kmeans.cluster_centers_[:,1], s=300, c= 'yellow', label='Centroids') 
-plt.title('Clusters of texts')
-plt.xlabel('x')
-plt.ylabel('Groups')
-plt.legend() # we want to add all the different scores
-plt.show()
 
 
 
