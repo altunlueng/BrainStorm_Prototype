@@ -19,7 +19,8 @@ import wikipediaapi
 import numpy as np # mathematical stuff
 import matplotlib.pyplot as plt # it's usually for plotting
 import pandas as pd #dataset processing lib
-
+# counter
+from collections import Counter as cnt
 # text mining libs
 # Need to remove stop words + stemming 
 #needed libraries:
@@ -255,7 +256,35 @@ def linking_words(p_words,all_articles,tokenizer):
                 all_companions[word] = companions
     return all_companions
 
-
+# to count and get the percentage of a cluster with its largest known group
+# p = max(group)/cluster_member_number
+# arranged is a list of list which contains words and their clusters
+# k is the cluster number
+def purity(arranged,k,groups,pwords):
+    purities = []
+    for cluster in range(0,k):
+        member_num = 0
+        group_dict = {}
+        for c in arranged:
+            word = c[0]
+            if c[1] == cluster:
+                member_num = member_num +1
+                for i in range(0,len(pwords)):
+                    if word == pwords[i]:
+                        group_name = str(groups[i])
+                        group_dict[group_name] = group_dict.get(group_name,0) +1
+        
+        
+        counted = cnt(group_dict)
+        t = counted.most_common(1)
+        max_group = t[0][1]
+        p = max_group/member_num
+        purities.append(p)
+    total = 0
+    for p in purities:
+        total = total + p
+    purity = total/4
+    return purity
 
 ######  ########
 """  
@@ -349,10 +378,22 @@ for i in range(1, len(dataset)):
 
 p_words = get_p_words(dataset,0)
 
-# Primary words research
-# getting all articles including primary word
+xl= pd.ExcelFile('P_words_selection.xlsx')
+p_w_s = xl.parse('Primary_Word') # data frame
 
-all_articles = look_Pwords(p_words,5)
+# data frame to a list
+p_words_selected =[]
+groups = []
+for i in range (0,len(p_w_s)):
+    word = p_w_s['Primary_Word'][i]
+    group = p_w_s['Group'][i]
+    p_words_selected.append(word)
+    groups.append(group)
+# Primary words research
+# getting all articles including primary word. It takes a list
+
+#all_articles = look_Pwords(p_words,5)
+all_articles_selected = look_Pwords(p_words_selected,5)
 
 
 ######## For further work
@@ -365,40 +406,57 @@ writer.save()
 # i write also the primary words that i extracted
 #
 from pandas import ExcelWriter
+writer = ExcelWriter('P_W_Selected_Articles_From_NoiseReduction_Coefficient.xlsx')
+df = pd.DataFrame(all_articles_selected, columns = ['ID','Title','Text','Category'])
+df.to_excel(writer, 'P_Words_Articles') 
+writer.save()  
+from pandas import ExcelWriter
 writer = ExcelWriter('Primaries_NoiseReduction_Coefficient.xlsx')
 df = pd.DataFrame(p_words, columns = ['Primary_Word'])
 df.to_excel(writer, 'Primary_Words') 
 writer.save()  
 ########
+"""
 from pandas import ExcelFile
 xl= pd.ExcelFile('P_Words_Articles_From_NoiseReduction_Coefficient.xlsx')
 all_articles = xl.parse('P_Words_Articles') # data frame
+"""
 #
+from pandas import ExcelFile
+xl= pd.ExcelFile('P_W_Selected_Articles_From_NoiseReduction_Coefficient.xlsx')
+all_articles_selected = xl.parse('P_Words_Articles') # data frame
+"""
 xl= pd.ExcelFile('Primaries_NoiseReduction_Coefficient.xlsx')
 p_words = xl.parse('Primary_Words') # data frame
+"""
+xl= pd.ExcelFile('P_words_selection.xlsx')
+p_words_selected = xl.parse('Primary_Word') # data frame
+
 ########################
 
 # there are some 'nan' s in text in all articles
 #all_articles = all_articles.reset_index().dropna().set_index('index')
-all_articles = all_articles.dropna().reset_index()
-
+#all_articles = all_articles.dropna().reset_index()
+all_articles_selected = all_articles_selected.dropna().reset_index()
 # getting companions frequencies of their primary words . It gives a dictionary
-linked_words = linking_words(p_words,all_articles,tokenizer)
-
+#linked_words = linking_words(p_words,all_articles,tokenizer)
+linked_words_selected = linking_words(p_words_selected,all_articles_selected,tokenizer)
 # saving the dict
-np.save('linked_words.npy', linked_words) 
+#np.save('linked_words.npy', linked_words) 
+np.save('linked_words_selected.npy', linked_words_selected) 
 # Load
 #read_dictionary = np.load('linked_words.npy').item()
-linked_words = np.load('linked_words.npy').item()
+#linked_words = np.load('linked_words.npy').item()
+linked_words_selected = np.load('linked_words_selected.npy').item()
 #
 #get the most common ones
 # also dict to dataframe
 # 'collections counter' library to be used
 from collections import Counter as cnt
 common_companions = {}
-keys = list(linked_words.keys())
+keys = list(linked_words_selected.keys())
 for key in keys:
-    counted = cnt(linked_words[key])
+    counted = cnt(linked_words_selected[key])
     commons = counted.most_common(10)
     t={}
     for k,v in commons:
@@ -520,7 +578,7 @@ plt.ylabel("Wcss value")
 plt.show()
 
 # applying the kmeans on our dataset now.
-kmeans= KMeans(n_clusters=5, init = 'k-means++', max_iter = 300, n_init = 10, random_state=0)
+kmeans= KMeans(n_clusters=4, init = 'k-means++', max_iter = 300, n_init = 10, random_state=0)
 # giving clusters to indiividuals
 y_kmeans = kmeans.fit_predict(X2)
 
@@ -567,7 +625,7 @@ plt.xlabel("Number of clusters")
 plt.ylabel("Wcss value")
 plt.show()
 
-kmeans= KMeans(n_clusters=5, init = 'k-means++', max_iter = 300, n_init = 10, random_state=0)
+kmeans= KMeans(n_clusters=4, init = 'k-means++', max_iter = 300, n_init = 10, random_state=0)
 # giving clusters to indiividuals
 y_kmeans = kmeans.fit_predict(X_pca)
 
@@ -587,7 +645,7 @@ ax.scatter(X_pca[y_kmeans == 0, 0], X_pca[y_kmeans == 0, 1], X_pca[y_kmeans == 0
 ax.scatter(X_pca[y_kmeans == 1, 0], X_pca[y_kmeans == 1, 1], X_pca[y_kmeans == 1, 2], alpha = 0.9, color= 'blue', label='Cluster 2')
 ax.scatter(X_pca[y_kmeans == 2, 0], X_pca[y_kmeans == 2, 1], X_pca[y_kmeans == 2, 2], alpha = 0.9, color= 'green', label='Cluster 3')
 ax.scatter(X_pca[y_kmeans == 3, 0], X_pca[y_kmeans == 3, 1], X_pca[y_kmeans == 3, 2], alpha = 0.9, color= 'cyan', label='Cluster 4')
-ax.scatter(X_pca[y_kmeans == 4, 0], X_pca[y_kmeans == 4, 1], X_pca[y_kmeans == 4, 2], alpha = 0.9, color= 'yellow', label='Cluster 5')
+#ax.scatter(X_pca[y_kmeans == 4, 0], X_pca[y_kmeans == 4, 1], X_pca[y_kmeans == 4, 2], alpha = 0.9, color= 'yellow', label='Cluster 5')
 
 # write to a file the clustered primary words
 primaries = X1.index.values
@@ -605,12 +663,13 @@ for i in range(0,5):
             arranged.append(c)
     
 from pandas import ExcelWriter
-writer = ExcelWriter('Clustered_P_Words.xlsx')
+writer = ExcelWriter('Clustered_P_Words_selected.xlsx')
 df = pd.DataFrame(arranged, columns = ['P_word','Cluster'])
 df.to_excel(writer, 'Clusters') 
 writer.save()  
 
-
+p = purity(arranged,4,groups,p_words_selected)
+print(p)
 
 
 
